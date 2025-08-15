@@ -1,0 +1,12 @@
+{
+    "enabled": true,
+    "pump_pin": 18,
+    "interval_ms": 1,
+    "fade_time_ms": 10,
+    "on_duration_ms": 50000,
+    "pump_speed_min": 0.0,
+    "pump_speed_max": 1.0,
+    "active_days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    "start_time": "08:00",
+    "end_time": "20:00"
+}
