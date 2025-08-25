@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pump Controller</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    .card { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+    label { display: block; margin-top: 10px; }
+    input { padding: 5px; width: 200px; }
+    button { margin-top: 15px; padding: 8px 12px; }
+  </style>
+  <script>
+    async function togglePump() {
+      let res = await fetch("/toggle", {method: "POST"});
+      let data = await res.json();
+      document.getElementById("pump-status").innerText =
+        data.enabled ? "ON" : "OFF";
+    }
+
+    async function saveConfig() {
+      let config = {};
+      document.querySelectorAll("input").forEach(el => {
+        if (el.type === "checkbox") {
+          config[el.name] = el.checked;
+        } else {
+          config[el.name] = el.value;
+        }
+      });
+      await fetch("/update", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(config)
+      });
+      alert("Config saved!");
+    }
+  </script>
+</head>
+<body>
+  <h1>Pump Controller</h1>
+
+  <div class="card">
+    <h2>Status</h2>
+    <p>Pump is <span id="pump-status">{{ 'ON' if config.get('enabled', True) else 'OFF' }}</span></p>
+    <button onclick="togglePump()">Toggle ON/OFF</button>
+  </div>
+
+  <div class="card">
+    <h2>Pump Settings</h2>
+    <label>Interval (ms): <input type="number" name="interval_ms" value="{{ config.get('interval_ms', 5000) }}"></label>
+    <label>On Duration (ms): <input type="number" name="on_duration_ms" value="{{ config.get('on_duration_ms', 2000) }}"></label>
+    <label>Fade Time (ms): <input type="number" name="fade_time_ms" value="{{ config.get('fade_time_ms', 1000) }}"></label>
+    <label>Pump Speed Min: <input type="number" step="0.1" name="pump_speed_min" value="{{ config.get('pump_speed_min', 0.0) }}"></label>
+    <label>Pump Speed Max: <input type="number" step="0.1" name="pump_speed_max" value="{{ config.get('pump_speed_max', 1.0) }}"></label>
+  </div>
+
+  <div class="card">
+    <h2>Schedule Settings</h2>
+    <label>Start Time: <input type="time" name="start_time" value="{{ config.get('start_time', '08:00') }}"></label>
+    <label>End Time: <input type="time" name="end_time" value="{{ config.get('end_time', '18:00') }}"></label>
+    <label>Active Days (comma-separated): 
+      <input type="text" name="active_days" value="{{ ','.join(config.get('active_days', ['Mon','Tue'])) }}">
+    </label>
+  </div>
+
+  <button onclick="saveConfig()">Save All Settings</button>
+</body>
+</html>
