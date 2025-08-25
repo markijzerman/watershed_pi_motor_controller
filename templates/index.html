@@ -14,7 +14,7 @@
       let res = await fetch("/toggle", {method: "POST"});
       let data = await res.json();
       document.getElementById("pump-status").innerText =
-        data.enabled ? "ON" : "OFF";
+        data.manual_on ? "ON (manual)" : "OFF";
     }
 
     async function saveConfig() {
@@ -33,6 +33,12 @@
       });
       alert("Config saved!");
     }
+
+    async function shutdownPi() {
+      if (!confirm("Are you sure you want to turn off the Pi?")) return;
+      await fetch("/shutdown", {method: "POST"});
+      alert("Shutdown command sent.");
+    }
   </script>
 </head>
 <body>
@@ -40,8 +46,8 @@
 
   <div class="card">
     <h2>Status</h2>
-    <p>Pump is <span id="pump-status">{{ 'ON' if config.get('enabled', True) else 'OFF' }}</span></p>
-    <button onclick="togglePump()">Toggle ON/OFF</button>
+    <p>Pump is <span id="pump-status">{{ 'ON (manual)' if config.get('manual_on', False) else ('ON' if config.get('enabled', True) else 'OFF') }}</span></p>
+    <button onclick="togglePump()">Toggle Pump</button>
   </div>
 
   <div class="card">
@@ -63,5 +69,7 @@
   </div>
 
   <button onclick="saveConfig()">Save All Settings</button>
+  <br><br>
+  <button onclick="shutdownPi()" style="background-color:red;color:white;">TURN PI OFF</button>
 </body>
 </html>

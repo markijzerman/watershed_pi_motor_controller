@@ -20,6 +20,19 @@ def load_config():
     try:
         with open(CONFIG_FILE, "r") as f:
             new_config = json.load(f)
+        # Ensure numeric types
+        int_fields = ["interval_ms", "on_duration_ms", "fade_time_ms"]
+        float_fields = ["pump_speed_min", "pump_speed_max"]
+        for k in int_fields:
+            if k in new_config:
+                new_config[k] = int(new_config[k])
+        for k in float_fields:
+            if k in new_config:
+                new_config[k] = float(new_config[k])
+        # Ensure active_days is list
+        if "active_days" in new_config and isinstance(new_config["active_days"], str):
+            new_config["active_days"] = [d.strip() for d in new_config["active_days"].split(",") if d.strip()]
+
         with config_lock:
             config = new_config
         print("Config reloaded:", config)
@@ -63,7 +76,9 @@ def shutdown_pi():
 
 def pump_loop():
     global config
-    pump = PWMOutputDevice(18, frequency=1000)  # default pin, updated via config if needed
+    pump_pin = 18
+    pump = PWMOutputDevice(pump_pin, frequency=1000)
+
     shutdown_button = Button(3, pull_up=True, bounce_time=0.1)
     shutdown_button.when_pressed = shutdown_pi
 
@@ -80,23 +95,30 @@ def pump_loop():
             time.sleep(0.5)
             continue
 
-        if current_day in cfg.get("active_days", []) and \
-           time_in_range(cfg.get("start_time", "00:00"), cfg.get("end_time", "23:59"), current_time):
+        # Determine schedule status
+        schedule_active = (current_day in cfg.get("active_days", [])) and \
+                          time_in_range(cfg.get("start_time", "00:00"), cfg.get("end_time", "23:59"), current_time)
 
-            interval = float(cfg.get("interval_ms", 5000)) / 1000.0
-            fade_time = float(cfg.get("fade_time_ms", 1000)) / 1000.0
-            on_duration = float(cfg.get("on_duration_ms", 2000)) / 1000.0
-            min_speed = float(cfg.get("pump_speed_min", 0.0))
-            max_speed = float(cfg.get("pump_speed_max", 1.0))
+        # Pump settings
+        interval = float(cfg.get("interval_ms", 5000)) / 1000.0
+        fade_time = float(cfg.get("fade_time_ms", 1000)) / 1000.0
+        on_duration = float(cfg.get("on_duration_ms", 2000)) / 1000.0
+        min_speed = float(cfg.get("pump_speed_min", 0.0))
+        max_speed = float(cfg.get("pump_speed_max", 1.0))
 
+        # Decide whether to run
+        if schedule_active or cfg.get("manual_on", False):
+            # Run pump cycle
             fade_pwm(pump, min_speed, max_speed, fade_time)
             time.sleep(on_duration)
             fade_pwm(pump, max_speed, min_speed, fade_time)
-
-            time.sleep(max(0, interval - (fade_time * 2 + on_duration)))
+            if schedule_active:
+                time.sleep(max(0, interval - (fade_time * 2 + on_duration)))
+            else:
+                time.sleep(0.5)  # manual override, repeat fast
         else:
             pump.value = 0
-            time.sleep(1)
+            time.sleep(0.5)
 
 # -----------------------
 # Flask Web Interface
@@ -112,8 +134,27 @@ def index():
 @app.route("/update", methods=["POST"])
 def update_config():
     new_config = request.json
+
+    # Convert numeric fields
+    int_fields = ["interval_ms", "on_duration_ms", "fade_time_ms"]
+    float_fields = ["pump_speed_min", "pump_speed_max"]
+    for k in int_fields:
+        if k in new_config:
+            try:
+                new_config[k] = int(new_config[k])
+            except ValueError:
+                new_config[k] = 0
+    for k in float_fields:
+        if k in new_config:
+            try:
+                new_config[k] = float(new_config[k])
+            except ValueError:
+                new_config[k] = 0.0
+
+    # Active days
     if "active_days" in new_config and isinstance(new_config["active_days"], str):
         new_config["active_days"] = [d.strip() for d in new_config["active_days"].split(",") if d.strip()]
+
     save_config(new_config)
     return jsonify({"status": "ok"})
 
@@ -121,9 +162,15 @@ def update_config():
 def toggle_pump():
     with config_lock:
         cfg = config.copy()
-    cfg["enabled"] = not cfg.get("enabled", True)
+    cfg["manual_on"] = not cfg.get("manual_on", False)
+    cfg["enabled"] = True  # ensure pump is enabled
     save_config(cfg)
-    return jsonify({"enabled": cfg["enabled"]})
+    return jsonify({"manual_on": cfg["manual_on"], "enabled": cfg["enabled"]})
+
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    threading.Thread(target=shutdown_pi).start()
+    return jsonify({"status": "shutting down"})
 
 # -----------------------
 # Main entry
@@ -132,7 +179,6 @@ def start_flask():
     app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False)
 
 if __name__ == "__main__":
-    # Initial load
     load_config()
 
     # Start watchdog
@@ -141,11 +187,10 @@ if __name__ == "__main__":
     observer.schedule(event_handler, ".", recursive=False)
     observer.start()
 
-    # Pump loop thread
+    # Start pump loop
     t = threading.Thread(target=pump_loop, daemon=True)
     t.start()
 
-    # Run web server
     try:
         start_flask()
     finally:

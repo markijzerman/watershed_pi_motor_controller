@@ -11,5 +11,6 @@
         "Fri",
         "Sat",
         "Sun"
-    ]
+    ],
+    "enabled": false
 }
