@@ -17,6 +17,13 @@
         data.manual_on ? "ON (manual)" : "OFF";
     }
 
+    async function toggleFlush() {
+      let res = await fetch("/flush", {method: "POST"});
+      let data = await res.json();
+      document.getElementById("flush-status").innerText =
+        data.flush_on ? "FLUSHING" : "OFF";
+    }
+
     async function saveConfig() {
       let config = {};
       document.querySelectorAll("input").forEach(el => {
@@ -70,6 +77,13 @@
 
   <button onclick="saveConfig()">Save All Settings</button>
   <br><br>
+
+  <div class="card">
+    <h2>Flush Mode</h2>
+    <p>Flush is <span id="flush-status">{{ 'FLUSHING' if config.get('flush_on', False) else 'OFF' }}</span></p>
+    <button onclick="toggleFlush()">Toggle Flush</button>
+  </div>
+
   <button onclick="shutdownPi()" style="background-color:red;color:white;">TURN PI OFF</button>
 </body>
 </html>
