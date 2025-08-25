@@ -90,15 +90,6 @@ def pump_loop():
         current_time = now.time()
         current_day = now.strftime("%a")
 
-        if not cfg.get("enabled", True):
-            pump.value = 0
-            time.sleep(0.5)
-            continue
-
-        # Determine schedule status
-        schedule_active = (current_day in cfg.get("active_days", [])) and \
-                          time_in_range(cfg.get("start_time", "00:00"), cfg.get("end_time", "23:59"), current_time)
-
         # Pump settings
         interval = float(cfg.get("interval_ms", 5000)) / 1000.0
         fade_time = float(cfg.get("fade_time_ms", 1000)) / 1000.0
@@ -106,16 +97,18 @@ def pump_loop():
         min_speed = float(cfg.get("pump_speed_min", 0.0))
         max_speed = float(cfg.get("pump_speed_max", 1.0))
 
-        # Decide whether to run
-        if schedule_active or cfg.get("manual_on", False):
-            # Run pump cycle
+        # Determine whether to run pump
+        schedule_active = (current_day in cfg.get("active_days", [])) and \
+                          time_in_range(cfg.get("start_time", "00:00"), cfg.get("end_time", "23:59"), current_time)
+        manual_override = cfg.get("manual_on", False)
+
+        if cfg.get("enabled", True) and (schedule_active or manual_override):
+            # Run pump cycle exactly like scheduled, even in manual
             fade_pwm(pump, min_speed, max_speed, fade_time)
             time.sleep(on_duration)
             fade_pwm(pump, max_speed, min_speed, fade_time)
-            if schedule_active:
-                time.sleep(max(0, interval - (fade_time * 2 + on_duration)))
-            else:
-                time.sleep(0.5)  # manual override, repeat fast
+            # Wait until next interval
+            time.sleep(max(0, interval - (fade_time * 2 + on_duration)))
         else:
             pump.value = 0
             time.sleep(0.5)
