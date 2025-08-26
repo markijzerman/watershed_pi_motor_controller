@@ -1,8 +1,8 @@
 {
     "pump_pin": 18,
     "interval_ms": 30000,
-    "on_duration_ms": 200,
-    "fade_time_ms": 200,
+    "on_duration_ms": 100,
+    "fade_time_ms": 100,
     "pump_speed_min": 0.0,
     "pump_speed_max": 0.5,
     "start_time": "16:00",

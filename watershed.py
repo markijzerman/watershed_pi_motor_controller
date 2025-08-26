@@ -132,6 +132,7 @@ def pump_loop():
     global config
     pump = None
     current_pin = None
+    last_flush_state = False
     
     while True:
         try:
@@ -158,6 +159,7 @@ def pump_loop():
 
             if not cfg.get("enabled", True):
                 pump.value = 0
+                last_flush_state = False
                 time.sleep(1)
                 continue
 
@@ -178,14 +180,28 @@ def pump_loop():
             manual_override = cfg.get("manual_on", False)
             flush_override = cfg.get("flush_on", False)
 
+            # Handle flush mode
             if flush_override:
+                # Only log state change
+                if not last_flush_state:
+                    print(f"Flush mode activated - pump at {max_speed}")
+                    last_flush_state = True
                 pump.value = max_speed
                 time.sleep(0.5)
                 continue
+            else:
+                # If we were in flush mode, log the exit
+                if last_flush_state:
+                    print("Flush mode deactivated")
+                    last_flush_state = False
 
+            # Handle normal operation
             if schedule_active or manual_override:
-                # Fade up
-                fade_pwm(pump, min_speed, max_speed, fade_time)
+                # Calculate current pump speed if we need to fade
+                current_speed = pump.value if pump else min_speed
+                
+                # Fade up from current speed
+                fade_pwm(pump, current_speed, max_speed, fade_time)
                 # Stay on
                 time.sleep(on_duration)
                 # Fade down
