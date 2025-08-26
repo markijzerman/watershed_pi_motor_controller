@@ -1,14 +1,18 @@
 {
-    "interval_ms": 5000,
-    "on_duration_ms": 500,
-    "fade_time_ms": 100,
+    "pump_pin": 18,
+    "interval_ms": 30000,
+    "on_duration_ms": 200,
+    "fade_time_ms": 200,
     "pump_speed_min": 0.0,
-    "pump_speed_max": 1.0,
+    "pump_speed_max": 0.5,
     "start_time": "16:00",
     "end_time": "20:00",
     "active_days": [
         "Thu",
         "Fri",
         "Sat"
-    ]
+    ],
+    "manual_on": true,
+    "flush_on": false,
+    "enabled": true
 }
