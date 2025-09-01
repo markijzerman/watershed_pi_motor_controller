@@ -157,12 +157,6 @@ def pump_loop():
                 time.sleep(1)
                 continue
 
-            if not cfg.get("enabled", True):
-                pump.value = 0
-                last_flush_state = False
-                time.sleep(1)
-                continue
-
             now = datetime.now()
             current_time = now.time()
             current_day = now.strftime("%a")
@@ -173,10 +167,14 @@ def pump_loop():
             min_speed = max(0.0, min(1.0, float(cfg.get("pump_speed_min", 0.0))))
             max_speed = max(0.0, min(1.0, float(cfg.get("pump_speed_max", 1.0))))
 
-            schedule_active = (current_day in cfg.get("active_days", [])) and \
-                              time_in_range(cfg.get("start_time", "00:00"),
-                                            cfg.get("end_time", "23:59"),
-                                            current_time)
+            # Check if schedule should be active (only if system is enabled)
+            schedule_active = False
+            if cfg.get("enabled", True):
+                schedule_active = (current_day in cfg.get("active_days", [])) and \
+                                  time_in_range(cfg.get("start_time", "00:00"),
+                                                cfg.get("end_time", "23:59"),
+                                                current_time)
+            
             manual_override = cfg.get("manual_on", False)
             flush_override = cfg.get("flush_on", False)
 
@@ -380,12 +378,18 @@ def get_status():
         current_time = now.time()
         current_day = now.strftime("%a")
         
-        schedule_active = (current_day in cfg.get("active_days", [])) and \
-                          time_in_range(cfg.get("start_time", "00:00"),
-                                        cfg.get("end_time", "23:59"),
-                                        current_time)
+        # Schedule only active if system is enabled
+        schedule_active = False
+        if cfg.get("enabled", True):
+            schedule_active = (current_day in cfg.get("active_days", [])) and \
+                              time_in_range(cfg.get("start_time", "00:00"),
+                                            cfg.get("end_time", "23:59"),
+                                            current_time)
+        
         manual_override = cfg.get("manual_on", False)
         flush_override = cfg.get("flush_on", False)
+        
+        # Pump is active if ANY of these are true (manual and flush work regardless of enabled)
         pump_active = schedule_active or manual_override or flush_override
         
         return jsonify({
